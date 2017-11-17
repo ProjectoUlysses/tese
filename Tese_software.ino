@@ -1,4 +1,4 @@
-#include <avr/sleep.h>
+ #include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <Wire.h>
@@ -12,7 +12,6 @@ Adafruit_SSD1306 display(OLED_RESET);
 #if (SSD1306_LCDHEIGHT != 64)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
-
 
 //******************************************************
 //********Definicoes do pinos a serem usados************
@@ -32,7 +31,7 @@ const char descarga = 6;
 int tempo_lcd = 8;
 
 //Tempo comunicacao serial
-int tempo_serial = 30000; 
+int tempo_serial = 5000; 
 
 
 //******************************************************
@@ -94,6 +93,7 @@ void loop()
  {
   case 1: //tratamento Serial
     trata_serial();
+    Serial.begin(9600);
   break;
   
   case 2: // temperatura
@@ -370,7 +370,7 @@ void MOSFET_ON()
     
       if(analogRead(0) < 512)
         flag_carga = 1;
-      
+
       if(corrente_nominal <= (corrente_bateria*(limite_descarga/100)))
         digitalWrite(descarga,LOW);
     }
@@ -407,7 +407,7 @@ byte flag_grava = 0;
 void contabiliza_carga() //contabiliza carga e descarga estado 4
 {
   float corrente = ACS712();
- 
+
   if(corrente != 0.0)
   {
     if(corrente >= corrente_descarga) //caso houver uma carga a mais do que a dimensionada o sistema desliga
@@ -417,13 +417,16 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
     }
     else
     {  
-      if(flag_carga == 0)
-      {
+        Serial.print(corrente_nominal,7);
+        Serial.print(",");
+        Serial.println(corrente_bateria,7);
+        delay(100);
+        
         total += (8.0*(-corrente))/3600.0;     //multiplicado por 8 pois só é medido a corrente de 8 em 8 segundos no modo WDT
         corrente_nominal += total;      //verifica a quantidade de carga que ainda se tem nas celulas
         gravar += total;
         total = 0;
-      }
+      
       flag = 5;
     }
   }
@@ -714,7 +717,14 @@ void lcd_print()
   if(flag_lcd == 1)
   {
     float SOCX = (100*(corrente_nominal/corrente_bateria));
+    if(SOCX > 100)
+      SOCX = 100;
+    
     float Temp = LM35_temp();
+    
+    if(corrente_nominal > corrente_bateria)
+      corrente_nominal = corrente_bateria;
+      
     float Auto = corrente_nominal/corrente_descarga;
         
     display.display(); 
