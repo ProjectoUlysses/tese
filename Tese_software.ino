@@ -720,11 +720,11 @@ void lcd_print()
       SOCX = 100;
     
     float Temp = LM35_temp();
-    
+    float Auto;
     if(corrente_nominal > corrente_bateria)
-      corrente_nominal = corrente_bateria;
-      
-    float Auto = corrente_nominal/corrente_descarga;
+      Auto = corrente_bateria/corrente_descarga;
+    else  
+      Auto = corrente_nominal/corrente_descarga;
         
     display.display(); 
     display.setTextColor(WHITE);
