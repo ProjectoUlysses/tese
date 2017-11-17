@@ -93,7 +93,6 @@ void loop()
  {
   case 1: //tratamento Serial
     trata_serial();
-    Serial.begin(9600);
   break;
   
   case 2: // temperatura
