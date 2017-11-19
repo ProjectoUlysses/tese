@@ -1,4 +1,4 @@
- #include <avr/sleep.h>
+#include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <Wire.h>
@@ -33,7 +33,8 @@ int tempo_lcd = 8;
 //Tempo comunicacao serial
 int tempo_serial = 5000; 
 
-
+//Tensao SPPM
+const char painel = 3;
 //******************************************************
 //**************Variaveis globais***********************
 //******************************************************
@@ -71,6 +72,9 @@ void setup ()
   //Configuracao pinos interrupcao externa
   pinMode(2,INPUT);
   pinMode(3,INPUT);
+
+  // LED ou BUZZER
+  pinMode(13,OUTPUT);
   
   Serial.begin(9600);
   delay(100);
@@ -83,6 +87,8 @@ void setup ()
 //flag que controla a maquina de estados do programa
 int flag = 1;
 byte flag_lcd = 0;
+byte serial = 0;
+byte flag_begin = 0;
 void loop()
 {
  
@@ -96,11 +102,17 @@ void loop()
   break;
   
   case 2: // temperatura
+  if(flag_begin == 0)
+  {
+    Serial.begin(9600);
+    delay(100);
+    flag_begin = 1;
+  }
    estado_temp();
   break;
   
   case 3: // Sleep, acorda somente com interrupcao externa
-    EIFR = bit(INTF1); //flag da interrupcao externa
+   EIFR = bit(INTF1); //flag da interrupcao externa
     modo_sleep_interrupcao();
   break;
   
@@ -339,7 +351,6 @@ void estado_temp() //estado 2
     MOSFET_OFF();
   else
     MOSFET_ON();
-
 }
 //sensor de temperatura
 float LM35_temp()
@@ -349,50 +360,37 @@ float LM35_temp()
 }
 
 //maquina de estados 2.1
-byte flag_off = 0;
 void MOSFET_OFF()
 { 
-  flag_off = 1;
   digitalWrite(carga, LOW);
   digitalWrite(descarga, LOW);
+  digitalWrite(13,HIGH);
   flag = 3;
 }
 byte flag_carga = 0;
+byte flag_iniciar = 0;
 //maquinas de estados 2.2
 void MOSFET_ON()
 {
-   if(flag_off == 0)
-   {  
-    if(analogRead(2) > 0)
-    {
-      digitalWrite(carga,HIGH);
-    
-      if(analogRead(0) < 512)
-        flag_carga = 1;
-
-      if(corrente_nominal <= (corrente_bateria*(limite_descarga/100)))
-        digitalWrite(descarga,LOW);
-    }
-    else
-      flag_carga = 0;
-    
-    if(corrente_nominal <= (corrente_bateria*(limite_descarga/100)))
-    {
-      digitalWrite(descarga,LOW); //desliga a descarga
-      digitalWrite(carga,HIGH); //liga a carga
-    }
-    if(corrente_nominal >= (corrente_bateria*(limite_carga/100)) && (flag_carga == 0)) 
-    {
-       digitalWrite(carga,LOW); //desliga a carga
-       digitalWrite(descarga,HIGH); //liga a descarga
-    }
-    if((corrente_nominal >= (corrente_bateria*(limite_descarga/100))) && (corrente_nominal <= (corrente_bateria*(limite_carga/100))))
-    {
-       digitalWrite(carga,HIGH); //liga a carga
-       digitalWrite(descarga,HIGH); //liga a descarga
-    }
-    flag = 4;
+ digitalWrite(13,LOW); //desliga LED
+  
+ digitalWrite(carga,HIGH);
+  
+ if(analogRead(painel) > 0)
+ {
+   if(corrente_nominal <= (corrente_bateria*(limite_descarga/100)))
+     digitalWrite(descarga,LOW);
+   else
+     digitalWrite(descarga,HIGH);  
   }
+  else
+  {
+     if(corrente_nominal <= (corrente_bateria*(limite_descarga/100)))
+        digitalWrite(descarga,LOW);
+     else
+        digitalWrite(descarga,HIGH);
+  }  
+    flag = 4;
 }
 
 //******************************************************
@@ -403,6 +401,7 @@ float total = 0.0;
 float gravar = 0.0;
 byte flag_dia = 0;
 byte flag_grava = 0;
+
 void contabiliza_carga() //contabiliza carga e descarga estado 4
 {
   float corrente = ACS712();
@@ -416,11 +415,6 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
     }
     else
     {  
-        Serial.print(corrente_nominal,7);
-        Serial.print(",");
-        Serial.println(corrente_bateria,7);
-        delay(100);
-        
         total += (8.0*(-corrente))/3600.0;     //multiplicado por 8 pois só é medido a corrente de 8 em 8 segundos no modo WDT
         corrente_nominal += total;      //verifica a quantidade de carga que ainda se tem nas celulas
         gravar += total;
@@ -430,17 +424,22 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
     }
   }
   if(digitalRead(3) == 0)
-  {
     flag = 3;
-  }
+  else
+    flag = 5;
  
-  float tensao_painel = 16.78*(analogRead(2)/1023.0);
+  float tensao_painel = 20*(analogRead(painel)/1023.0);
   
   if(tensao_painel > 2 && flag_dia == 0)
   {
+    Serial.println("Entrou");
+    delay(50);
      flag_dia = 1; 
      if(flag_grava == 1)
      {
+      
+    Serial.println("Indo gravar");
+    delay(50);
       grava_EEPROM(gravar);                   
       gravar = 0;
       contador_leitura++; 
@@ -452,6 +451,9 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
   }
   if(tensao_painel < 1 && flag_dia == 1)
   {
+    
+    Serial.println("Sem sol");
+    delay(50);
       flag_dia = 0;
       flag_grava = 1;
   }
@@ -463,7 +465,10 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
 int endereco_inicial = 9;
 void grava_EEPROM(float total)
 {
-
+    Serial.println("GRAVOU");
+    Serial.println(total,7);
+    delay(100);
+    
     int dado = (100*total); //corrente em decimal
     
     EEPROM.write(endereco_inicial,dia);
@@ -634,8 +639,15 @@ float ACS712()
   }
   f = 0;
   if(media > 508 && media <= 515)
-    analog = 512;
- 
+    media = 512;
+
+  Serial.print(media);
+  Serial.print(",");
+  Serial.print(analogRead(a0));
+  Serial.print(",");
+  Serial.println((media - 512.0)/17.77);
+  delay(100);
+  
   return (media - 512.0)/17.77;
 }
 //*****************************************************
@@ -721,6 +733,10 @@ void lcd_print()
     
     float Temp = LM35_temp();
     float Auto;
+    
+    if(Temp < 60)
+      digitalWrite(13,LOW);
+    
     if(corrente_nominal > corrente_bateria)
       Auto = corrente_bateria/corrente_descarga;
     else  
