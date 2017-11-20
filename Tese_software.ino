@@ -342,15 +342,27 @@ void imprime_eeprom()
 //******************************************************
 //********************Temperatura***********************
 //******************************************************
+byte flag_temperatura = 0;
+byte flag_sobrecarga = 0;
 
 void estado_temp() //estado 2
 {
   float total_temp = LM35_temp();
   
-  if(total_temp >= temperatura_nominal)
+  if(total_temp >= temperatura_nominal || flag_sobrecarga == 1)
+  {
     MOSFET_OFF();
+    
+    if(flag_sobrecarga == 1)
+      flag_temperatura = 0;
+    else
+      flag_temperatura = 1;
+  }
   else
+  {
     MOSFET_ON();
+    flag_temperatura = 0;
+  }
 }
 //sensor de temperatura
 float LM35_temp()
@@ -358,8 +370,8 @@ float LM35_temp()
   int temp = analogRead(a1);
   return(temp*(5.0/1023.0)*100.0);
 }
-
 //maquina de estados 2.1
+
 void MOSFET_OFF()
 { 
   digitalWrite(carga, LOW);
@@ -367,6 +379,7 @@ void MOSFET_OFF()
   digitalWrite(13,HIGH);
   flag = 3;
 }
+
 byte flag_carga = 0;
 byte flag_iniciar = 0;
 //maquinas de estados 2.2
@@ -410,6 +423,7 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
   {
     if(corrente >= corrente_descarga) //caso houver uma carga a mais do que a dimensionada o sistema desliga
     {
+      flag_sobrecarga = 1;
       MOSFET_OFF();
       flag = 3; //repeti so para garantir
     }
@@ -419,8 +433,8 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
         corrente_nominal += total;      //verifica a quantidade de carga que ainda se tem nas celulas
         gravar += total;
         total = 0;
-      
-      flag = 5;
+        flag_sobrecarga = 0;
+        flag = 5;
     }
   }
   if(digitalRead(3) == 0)
@@ -725,15 +739,16 @@ void modo_sleep_interrupcao()
 void lcd_print()
 {
   flag = 5;
-  if(flag_lcd == 1)
+  int tempo = 0;
+  float Auto;
+  float Temp = LM35_temp();
+  
+  if(flag_lcd == 1 && flag_temperatura == 0 && flag_sobrecarga == 0)
   {
     float SOCX = (100*(corrente_nominal/corrente_bateria));
     if(SOCX > 100)
       SOCX = 100;
-    
-    float Temp = LM35_temp();
-    float Auto;
-    
+
     if(Temp < 60)
       digitalWrite(13,LOW);
     
@@ -774,10 +789,58 @@ void lcd_print()
     display.setCursor(110,40);
     display.println("%");
     display.display();
-    int tempo = 0;
+
     tempo = tempo_lcd*1000;
     delay(tempo);
     flag_lcd = 2;
+  }
+  
+  if(flag_temperatura == 1)
+  {
+     
+    if(Temp < 60)
+      digitalWrite(13,LOW);
+    
+    display.display(); 
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+    display.setCursor(10,0);
+    display.println("TEMP ALTA");
+
+    display.setTextSize(2);
+    display.setCursor(20,20);
+    display.println("PERIGO!!!");
+    display.setCursor(65,20);
+    
+    display.setCursor(0,40);
+    display.println("AGUARDE...");
+    display.display();
+
+
+    tempo = tempo_lcd*1000;
+    delay(tempo);
+    flag_lcd = 2;      
+  }
+
+  if(flag_sobrecarga == 1)
+  {
+    display.display(); 
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+    display.setCursor(15,0);
+    display.println("CORRENTE");
+    
+    display.setTextSize(2);
+    display.setCursor(25,20);
+    display.println("ALTA!!!");
+    
+    display.setCursor(0,40);
+    display.println("DESLIGANDO");
+    display.display();
+
+    tempo = tempo_lcd*1000;
+    delay(tempo);
+    flag_lcd = 2;    
   }
     lcd_apaga();
 }
