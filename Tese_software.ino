@@ -360,6 +360,7 @@ void estado_temp() //estado 2
   }
   else
   {
+    digitalWrite(7,LOW);
     MOSFET_ON();
     flag_temperatura = 0;
   }
@@ -377,7 +378,11 @@ void MOSFET_OFF()
   digitalWrite(carga, LOW);
   digitalWrite(descarga, LOW);
   digitalWrite(13,HIGH);
-  flag = 3;
+  
+  if(flag_temperatura == 1)
+    flag = 5;
+  else
+    flag = 3;
 }
 
 byte flag_carga = 0;
@@ -437,7 +442,7 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
         flag = 5;
     }
   }
-  if(digitalRead(3) == 0)
+  if(digitalRead(3) == 0 && flag_temperatura == 0)
     flag = 3;
   else
     flag = 5;
