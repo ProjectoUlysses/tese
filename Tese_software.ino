@@ -3,14 +3,13 @@
 #include <avr/power.h>
 #include <Wire.h>
 #include <EEPROM.h>
-#include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
 #define OLED_RESET 4
 Adafruit_SSD1306 display(OLED_RESET);
 
 #if (SSD1306_LCDHEIGHT != 64)
-#error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#error("ERRO!");
 #endif
 
 //******************************************************
@@ -27,18 +26,19 @@ const char a1 = 1;
 const char carga = 5;
 const char descarga = 6;
 
-//Tempo que o lCD fica ligado em segundos
+//Tempo que o OLED fica ligado em segundos
 int tempo_lcd = 8;
 
 //Tempo comunicacao serial
-int tempo_serial = 5000; 
+int tempo_serial = 30000; 
 
 //Tensao SPPM
 const char painel = 3;
+
 //******************************************************
 //**************Variaveis globais***********************
 //******************************************************
-//Determinado pelo técnico com o programa em visual studio 
+//Determinado pelo t�cnico com o programa em visual studio 
 
 float corrente_descarga = EEPROM.read(1);
 float corrente_nominal = EEPROM.read(2);
@@ -102,12 +102,6 @@ void loop()
   break;
   
   case 2: // temperatura
-  if(flag_begin == 0)
-  {
-    Serial.begin(9600);
-    delay(100);
-    flag_begin = 1;
-  }
    estado_temp();
   break;
   
@@ -147,7 +141,7 @@ void trata_serial() //estado 1
     tempo_anterior = tempo;
     flag_tempo_comunicacao = 1;
   }
-  if((tempo - tempo_anterior >= tempo_serial) && flag_recebido == 0 )//30 segundos de espera na comunicação, casou houver comunicacao este parte é iguinorada
+  if((tempo - tempo_anterior >= tempo_serial) && flag_recebido == 0 )//30 segundos de espera na comunica��o, casou houver comunicacao este parte � iguinorada
   {                                                     //espera salvar os dados
     flag = 2;
     flag_tempo_comunicacao = 0;
@@ -234,7 +228,7 @@ void verifica_serial()
       break;
       
       case 8://"salva os dados"
-      //fecha a inserção do programa
+      //fecha a inser��o do programa
       flag = 2;
       flag_recebido = 0;
       Serial.end();
@@ -434,7 +428,7 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
     }
     else
     {  
-        total += (8.0*(-corrente))/3600.0;     //multiplicado por 8 pois só é medido a corrente de 8 em 8 segundos no modo WDT
+        total += (8.0*(-corrente))/3600.0;     //multiplicado por 8 pois s� � medido a corrente de 8 em 8 segundos no modo WDT
         corrente_nominal += total;      //verifica a quantidade de carga que ainda se tem nas celulas
         gravar += total;
         total = 0;
@@ -443,22 +437,17 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
     }
   }
   if(digitalRead(3) == 0 && flag_temperatura == 0)
-    flag = 3;
+    flag = 3; 
   else
-    flag = 5;
+    flag = 5;//o programa ficara acordado verificado a temperatura ou se há corrente na carga e descarga
  
   float tensao_painel = 20*(analogRead(painel)/1023.0);
   
   if(tensao_painel > 2 && flag_dia == 0)
   {
-    Serial.println("Entrou");
-    delay(50);
      flag_dia = 1; 
      if(flag_grava == 1)
      {
-      
-    Serial.println("Indo gravar");
-    delay(50);
       grava_EEPROM(gravar);                   
       gravar = 0;
       contador_leitura++; 
@@ -470,9 +459,6 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
   }
   if(tensao_painel < 1 && flag_dia == 1)
   {
-    
-    Serial.println("Sem sol");
-    delay(50);
       flag_dia = 0;
       flag_grava = 1;
   }
@@ -484,10 +470,7 @@ void contabiliza_carga() //contabiliza carga e descarga estado 4
 int endereco_inicial = 9;
 void grava_EEPROM(float total)
 {
-    Serial.println("GRAVOU");
-    Serial.println(total,7);
-    delay(100);
-    
+  
     int dado = (100*total); //corrente em decimal
     
     EEPROM.write(endereco_inicial,dia);
@@ -659,13 +642,6 @@ float ACS712()
   f = 0;
   if(media > 508 && media <= 515)
     media = 512;
-
-  Serial.print(media);
-  Serial.print(",");
-  Serial.print(analogRead(a0));
-  Serial.print(",");
-  Serial.println((media - 512.0)/17.77);
-  delay(100);
   
   return (media - 512.0)/17.77;
 }
