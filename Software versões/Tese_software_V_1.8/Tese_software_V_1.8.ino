@@ -9,7 +9,6 @@
 #define I2C_ADDRESS 0x3C
 SSD1306AsciiAvrI2c oled;
 
-//endereco de leitura i2c
 
 //******************************************************
 //********Definicoes do pinos a serem usados************
@@ -44,7 +43,7 @@ float total_temp = 0.0;
 //**************Variaveis globais***********************
 //******************************************************
 //Determinado pelo t�cnico com o programa em visual studio 
-/*
+
 float corrente_descarga = EEPROM.read(1);
 float corrente_nominal = EEPROM.read(2);
 float corrente_bateria = corrente_nominal;
@@ -55,19 +54,7 @@ float temperatura_nominal = EEPROM.read(5); //limite de temperatura
 //dia mes ano
 int dia = EEPROM.read(6);
 int mes = EEPROM.read(7);
-int ano = EEPROM.read(8);*/
-
-float corrente_descarga = 1;
-float corrente_nominal = 2;
-float corrente_bateria = corrente_nominal;
-float limite_descarga = 10;       //limite da descarga em %
-float limite_carga = 99;      //limite da carga em %
-float temperatura_nominal =60; //limite de temperatura
-
-//dia mes ano
-int dia = 12;
-int mes = 12;
-int ano = 17;
+int ano = EEPROM.read(8);
 
 //******************************************************
 //*********************Setup****************************
